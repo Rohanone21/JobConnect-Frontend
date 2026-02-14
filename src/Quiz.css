@@ -1,0 +1,151 @@
+.quiz-container {
+  max-width: 900px;
+  margin: 30px auto;
+  padding: 20px;
+  font-family: "Segoe UI", sans-serif;
+  background: #f5f7fb;
+}
+
+.quiz-header {
+  background: #ffffff;
+  padding: 20px;
+  border-radius: 12px;
+  margin-bottom: 25px;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.08);
+}
+
+.quiz-header h2 {
+  margin-bottom: 6px;
+  color: #222;
+}
+
+.quiz-header p {
+  color: #666;
+}
+
+.score-box {
+  margin-top: 10px;
+  font-weight: bold;
+  background: #eef2ff;
+  padding: 8px 14px;
+  display: inline-block;
+  border-radius: 20px;
+}
+
+.question-card {
+  background: #ffffff;
+  padding: 20px;
+  border-radius: 12px;
+  margin-bottom: 18px;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.07);
+}
+
+.question-text {
+  font-weight: 600;
+  margin-bottom: 12px;
+  color: #333;
+}
+
+.option {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  margin-bottom: 8px;
+  border-radius: 8px;
+  cursor: pointer;
+  border: 1px solid #ddd;
+  transition: all 0.2s ease;
+}
+
+.option:hover {
+  background: #eef2ff;
+  border-color: #6366f1;
+}
+
+.option input {
+  accent-color: #6366f1;
+}
+
+.submit-section {
+  text-align: center;
+  margin-top: 30px;
+}
+
+.submit-section button {
+  background: #6366f1;
+  color: white;
+  border: none;
+  padding: 12px 30px;
+  border-radius: 30px;
+  font-size: 16px;
+  cursor: pointer;
+  transition: 0.2s ease;
+}
+
+.submit-section button:hover {
+  background: #4f46e5;
+}
+
+.result {
+  margin-top: 20px;
+  font-size: 26px;
+  font-weight: bold;
+}
+
+.pass {
+  color: green;
+}
+
+.fail {
+  color: red;
+}
+.quiz-container {
+  width: 80%;
+  margin: auto;
+  font-family: Arial, sans-serif;
+}
+
+.quiz-header {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 20px;
+}
+
+.question-card {
+  margin-bottom: 20px;
+  padding: 15px;
+  border: 1px solid #ddd;
+  border-radius: 5px;
+}
+
+.option {
+  display: block;
+  margin: 5px 0;
+}
+
+.submit-section {
+  margin-top: 20px;
+}
+
+.result {
+  margin-top: 15px;
+  font-weight: bold;
+  padding: 10px;
+  border-radius: 5px;
+  text-align: center;
+}
+
+/* Passed = green */
+.pass {
+  color: #155724;
+  background-color: #d4edda;
+  border: 1px solid #c3e6cb;
+}
+
+/* Failed = red */
+.fail {
+  color: #721c24;
+  background-color: #f8d7da;
+  border: 1px solid #f5c6cb;
+}
