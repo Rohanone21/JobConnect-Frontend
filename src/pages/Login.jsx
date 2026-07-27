@@ -1,13 +1,14 @@
 import React, { useState } from "react";
 import { loginUser, registerUser } from "../api/authService";
 import { useNavigate } from "react-router-dom";
+import Chatbot from "../Chatbot";
 const Login = () => {
   const navigate=useNavigate();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [msg, setMsg] = useState("");
   const [role,setrole]=useState("");
-
+  const[shows,setshows]=useState(false);
 
   const HandleSubmit = async (e) => {
     const k=/^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
@@ -189,7 +190,9 @@ const Login = () => {
           >
             Sign in
           </button>
+         
         </form>
+        { shows&&(<Chatbot email={email}/>)}
 
         {msg && (
           <p

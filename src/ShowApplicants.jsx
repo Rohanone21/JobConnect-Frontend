@@ -8,6 +8,25 @@ const ShowApplications = () => {
   const [showShortlisted, setShowShortlisted] = useState(false);
   const [loading, setLoading] = useState(true);
   const [jobTitle, setJobTitle] = useState("");
+  
+  // Analysis States
+  const [analysisResult, setAnalysisResult] = useState(null);
+  const [showid, setshowid] = useState(null);
+  const [analysisLoading, setAnalysisLoading] = useState(false);
+
+  const ResumeAnalysis = async (id) => {
+    try {
+      setAnalysisLoading(true);
+      setshowid(id);
+      const ndata = await axios.get(`https://localhost:7077/api/ResumeAnalysis/${id}`);
+      console.log("Resume Analysis Result:", ndata.data);
+      setAnalysisResult(ndata.data);
+    } catch (err) {
+      console.error("Error fetching resume analysis", err);
+    } finally {
+      setAnalysisLoading(false);
+    }
+  };
 
   const GetApplicants = async () => {
     setLoading(true);
@@ -18,7 +37,7 @@ const ShowApplications = () => {
 
       const res = await axios.get(url);
       setData(res.data);
-      
+
       // Try to get job title if available
       try {
         const jobRes = await axios.get(`https://localhost:7077/api/AdminJobs/${JobId}`);
@@ -115,6 +134,9 @@ const ShowApplications = () => {
                   </div>
                   <div>
                     <h2 style={styles.applicantName}>{e.applicationName}</h2>
+                    <p style={styles.applicantContact}>
+                      <span style={styles.contactItem}>ID: {e.id}</span>
+                    </p>
                     <p style={styles.applicantContact}>
                       <span style={styles.contactItem}>📧 {e.email}</span>
                       <span style={styles.contactItem}>📱 {e.mobileNo}</span>
@@ -236,9 +258,82 @@ const ShowApplications = () => {
                     </div>
                   )}
                 </div>
+
+                {/* Analysis Action Button */}
+                {e.resumeUrl && showid !== e.id && (
+                  <button
+                    style={styles.analysisBtn}
+                    onClick={() => ResumeAnalysis(e.id)}
+                  >
+                    ✨ Run AI Resume Analysis
+                  </button>
+                )}
               </div>
 
-              {/* Footer */}
+              {/* AI Analysis Result Section */}
+              {showid === e.id && (
+                <div style={styles.analysisContainer}>
+                  <div style={styles.analysisHeader}>
+                    <h4 style={styles.analysisTitle}>🤖 AI Resume Analysis</h4>
+                    {analysisResult?.analysis?.matchPercentage && (
+                      <span style={styles.matchScoreBadge}>
+                        {analysisResult.analysis.matchPercentage} Match
+                      </span>
+                    )}
+                  </div>
+
+                  {analysisLoading ? (
+                    <p style={{ fontSize: "13px", color: "#666" }}>Analyzing resume content...</p>
+                  ) : (
+                    analysisResult && (
+                      <div style={styles.analysisBody}>
+                        {/* Summary Badges */}
+                        <div style={styles.metaRow}>
+                          {analysisResult.candidate && (
+                            <span style={styles.metaBadge}>Candidate: {analysisResult.candidate}</span>
+                          )}
+                          {analysisResult.role && (
+                            <span style={styles.metaBadge}>Role: {analysisResult.role}</span>
+                          )}
+                        </div>
+
+                        {/* Analysis Grid */}
+                        <div style={styles.analysisGrid}>
+                          {analysisResult.analysis?.strengths && (
+                            <div style={styles.analysisBox}>
+                              <h5 style={styles.boxTitleGreen}>💪 Strengths</h5>
+                              <p style={styles.boxText}>{analysisResult.analysis.strengths}</p>
+                            </div>
+                          )}
+
+                          {analysisResult.analysis?.weaknesses && (
+                            <div style={styles.analysisBox}>
+                              <h5 style={styles.boxTitleRed}>⚠️ Areas for Notice</h5>
+                              <p style={styles.boxText}>{analysisResult.analysis.weaknesses}</p>
+                            </div>
+                          )}
+
+                          {analysisResult.analysis?.improvements && (
+                            <div style={styles.analysisBox}>
+                              <h5 style={styles.boxTitleBlue}>📈 Suggested Improvements</h5>
+                              <p style={styles.boxText}>{analysisResult.analysis.improvements}</p>
+                            </div>
+                          )}
+
+                          {analysisResult.analysis?.companyFitAnalysis && (
+                            <div style={styles.analysisBox}>
+                              <h5 style={styles.boxTitlePurple}>🏢 Culture & Company Fit</h5>
+                              <p style={styles.boxText}>{analysisResult.analysis.companyFitAnalysis}</p>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )
+                  )}
+                </div>
+              )}
+
+              {/* Card Footer */}
               <div style={styles.cardFooter}>
                 <span style={styles.applicationDate}>
                   Applied on {new Date(e.appliedOn).toLocaleDateString('en-US', {
@@ -309,9 +404,6 @@ const styles = {
     alignItems: "center",
     gap: "8px",
     transition: "all 0.2s ease",
-    "&:hover": {
-      backgroundColor: "#f0f7ff",
-    },
   },
   activeFilterBtn: {
     backgroundColor: "#0a66c2",
@@ -377,7 +469,7 @@ const styles = {
   applicationsGrid: {
     padding: "24px",
     display: "grid",
-    gridTemplateColumns: "repeat(auto-fill, minmax(400px, 1fr))",
+    gridTemplateColumns: "repeat(auto-fill, minmax(420px, 1fr))",
     gap: "24px",
   },
   applicationCard: {
@@ -386,11 +478,9 @@ const styles = {
     padding: "24px",
     boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
     border: "1px solid #e0e0e0",
-    transition: "transform 0.2s ease",
-    "&:hover": {
-      transform: "translateY(-2px)",
-      boxShadow: "0 4px 12px rgba(0,0,0,0.12)",
-    },
+    display: "flex",
+    flexDirection: "column",
+    justifyContent: "space-between",
   },
   cardHeader: {
     display: "flex",
@@ -427,6 +517,7 @@ const styles = {
     display: "flex",
     flexDirection: "column",
     gap: "4px",
+    margin: 0,
   },
   contactItem: {
     fontSize: "13px",
@@ -461,10 +552,6 @@ const styles = {
     fontSize: "14px",
     fontWeight: "600",
     cursor: "pointer",
-    transition: "background-color 0.2s ease",
-    "&:hover": {
-      backgroundColor: "#004182",
-    },
   },
   detailsGrid: {
     display: "grid",
@@ -506,11 +593,6 @@ const styles = {
     fontSize: "14px",
     fontWeight: "500",
     textDecoration: "none",
-    transition: "all 0.2s ease",
-    "&:hover": {
-      backgroundColor: "#e1f0ff",
-      transform: "translateY(-1px)",
-    },
   },
   linkIcon: {
     fontSize: "16px",
@@ -528,6 +610,7 @@ const styles = {
     display: "grid",
     gridTemplateColumns: "1fr 1fr",
     gap: "12px",
+    marginBottom: "12px",
   },
   documentCard: {
     backgroundColor: "#f8f9fa",
@@ -554,10 +637,107 @@ const styles = {
     color: "#0a66c2",
     textDecoration: "none",
     fontWeight: "500",
-    "&:hover": {
-      textDecoration: "underline",
-    },
   },
+  analysisBtn: {
+    width: "100%",
+    backgroundColor: "#f3f0ff",
+    color: "#6b21a8",
+    border: "1px solid #d8b4fe",
+    padding: "10px 16px",
+    borderRadius: "8px",
+    fontSize: "14px",
+    fontWeight: "600",
+    cursor: "pointer",
+    transition: "all 0.2s ease",
+  },
+
+  /* Analysis Section Styles */
+  analysisContainer: {
+    backgroundColor: "#fafafc",
+    border: "1px solid #e9e3ff",
+    borderRadius: "10px",
+    padding: "16px",
+    marginBottom: "20px",
+  },
+  analysisHeader: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: "12px",
+  },
+  analysisTitle: {
+    fontSize: "15px",
+    fontWeight: "700",
+    color: "#4c1d95",
+    margin: 0,
+  },
+  matchScoreBadge: {
+    backgroundColor: "#059669",
+    color: "white",
+    fontSize: "12px",
+    fontWeight: "700",
+    padding: "4px 10px",
+    borderRadius: "12px",
+  },
+  analysisBody: {
+    display: "flex",
+    flexDirection: "column",
+    gap: "12px",
+  },
+  metaRow: {
+    display: "flex",
+    gap: "8px",
+    flexWrap: "wrap",
+  },
+  metaBadge: {
+    fontSize: "12px",
+    backgroundColor: "#f3f4f6",
+    color: "#374151",
+    padding: "4px 8px",
+    borderRadius: "4px",
+  },
+  analysisGrid: {
+    display: "flex",
+    flexDirection: "column",
+    gap: "10px",
+  },
+  analysisBox: {
+    backgroundColor: "white",
+    padding: "10px 12px",
+    borderRadius: "6px",
+    border: "1px solid #f3f4f6",
+  },
+  boxTitleGreen: {
+    fontSize: "12px",
+    fontWeight: "700",
+    color: "#166534",
+    margin: "0 0 4px 0",
+  },
+  boxTitleRed: {
+    fontSize: "12px",
+    fontWeight: "700",
+    color: "#991b1b",
+    margin: "0 0 4px 0",
+  },
+  boxTitleBlue: {
+    fontSize: "12px",
+    fontWeight: "700",
+    color: "#1e40af",
+    margin: "0 0 4px 0",
+  },
+  boxTitlePurple: {
+    fontSize: "12px",
+    fontWeight: "700",
+    color: "#6b21a8",
+    margin: "0 0 4px 0",
+  },
+  boxText: {
+    fontSize: "13px",
+    color: "#4b5563",
+    margin: 0,
+    lineHeight: "1.4",
+  },
+
   cardFooter: {
     display: "flex",
     justifyContent: "space-between",
@@ -578,22 +758,24 @@ const styles = {
     fontSize: "14px",
     fontWeight: "600",
     cursor: "pointer",
-    transition: "background-color 0.2s ease",
-    "&:hover": {
-      backgroundColor: "#004182",
-    },
   },
 };
 
 // Add keyframes for spinner animation
-const styleSheet = document.styleSheets[0];
-if (styleSheet) {
-  styleSheet.insertRule(`
-    @keyframes spin {
-      0% { transform: rotate(0deg); }
-      100% { transform: rotate(360deg); }
+if (typeof document !== "undefined") {
+  const styleSheet = document.styleSheets[0];
+  if (styleSheet) {
+    try {
+      styleSheet.insertRule(`
+        @keyframes spin {
+          0% { transform: rotate(0deg); }
+          100% { transform: rotate(360deg); }
+        }
+      `, styleSheet.cssRules.length);
+    } catch (e) {
+      // Ignore duplicates
     }
-  `, styleSheet.cssRules.length);
+  }
 }
 
 export default ShowApplications;

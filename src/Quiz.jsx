@@ -1,158 +1,274 @@
 import axios from "axios";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useParams } from "react-router-dom";
 import "./Quiz.css";
+
+const TOTAL_QUIZ_TIME = 300; // Total time in seconds (e.g., 300s = 5 minutes)
 
 const Quiz = () => {
   const { JobId } = useParams();
 
   // ---------- STATE ----------
-  const [data, setData] = useState({});
-  const [answers, setAnswers] = useState(
-    JSON.parse(localStorage.getItem(`quiz_answers_${JobId}`)) || {}
-  );
-  const [score, setScore] = useState(
-    Number(localStorage.getItem(`quiz_score_${JobId}`)) || 0
-  );
-  const [show, setShow] = useState(false);
+  const [questions, setQuestions] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
-  const [seconds, setSeconds] = useState(() => {
-    const saved = localStorage.getItem(`quiz_seconds_${JobId}`);
-    return saved ? Number(saved) : 60; // default 60 seconds
-  });
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const [selectedAnswers, setSelectedAnswers] = useState({});
+  const [timeLeft, setTimeLeft] = useState(TOTAL_QUIZ_TIME); // Single overall timer
+  const [isSubmitted, setIsSubmitted] = useState(false);
 
-  const [shows,setshows]=useState(true);
-  // ---------- API ----------
-  const ShowQuiz = async () => {
+  // Fetch Quiz Questions
+  const fetchQuiz = async () => {
     try {
-      const res = await axios.get(
-        `https://localhost:7281/api/Test/company/${JobId}/test/${JobId}/questions-with-answers`
+      setLoading(true);
+      const payload = {
+        jobId: JobId,
+        numberOfQuestions: 5,
+      };
+      const res = await axios.post(
+        "https://localhost:7077/api/Assessment/Assessment",
+        payload
       );
-      setData(res.data);
+      setQuestions(res.data?.questions || []);
+      setTimeLeft(TOTAL_QUIZ_TIME); // Reset timer on fetch
+      setLoading(false);
     } catch (err) {
-      console.log("error", err.message);
+      console.error("Error fetching quiz:", err);
+      setError("Failed to load quiz. Please check your connection or API.");
+      setLoading(false);
     }
   };
 
-  // ---------- TIMER ----------
   useEffect(() => {
-    ShowQuiz();
+    fetchQuiz();
+  }, [JobId]);
 
-    if (localStorage.getItem(`quiz_submitted_${JobId}`)) {
-      setSeconds(0);
-      setShow(true);
-      return;
-    }
+  // Handle auto-submitting when the overall timer hits zero
+  const handleSubmit = useCallback(() => {
+    setIsSubmitted(true);
+  }, []);
 
-    const interval = setInterval(() => {
-      setSeconds((prev) => {
+  // Overall Timer Effect
+  useEffect(() => {
+    if (loading || isSubmitted || questions.length === 0) return;
+
+    const timer = setInterval(() => {
+      setTimeLeft((prev) => {
         if (prev <= 1) {
-          clearInterval(interval);
-          localStorage.removeItem(`quiz_seconds_${JobId}`);
-          setShow(true);
+          clearInterval(timer);
+          handleSubmit(); // Automatically submit quiz when overall time ends
           return 0;
         }
-        localStorage.setItem(`quiz_seconds_${JobId}`, prev - 1);
         return prev - 1;
       });
     }, 1000);
 
-    return () => clearInterval(interval);
-  }, []);
+    return () => clearInterval(timer);
+  }, [loading, isSubmitted, questions.length, handleSubmit]);
 
-  // ---------- SCORE CALCULATION ----------
-  useEffect(() => {
-    let calculatedScore = 0;
-    Object.entries(answers).forEach(([questionId, optionId]) => {
-      const question = data.questions?.find(
-        (q) => q.id.toString() === questionId
-      );
-      if (question) {
-        const selectedOption = question.options.find(
-          (o) => o.id.toString() === optionId
-        );
-        if (selectedOption?.isCorrect) calculatedScore++;
+  // Format seconds to MM:SS
+  const formatTime = (seconds) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins.toString().padStart(2, "0")}:${secs
+      .toString()
+      .padStart(2, "0")}`;
+  };
+
+  // Option selection handler
+  const handleOptionSelect = (optionText) => {
+    setSelectedAnswers({
+      ...selectedAnswers,
+      [currentIndex]: optionText,
+    });
+  };
+
+  // Score Calculation
+  const calculateScore = () => {
+    let score = 0;
+    questions.forEach((q, index) => {
+      if (selectedAnswers[index] === q.correctAnswer) {
+        score++;
       }
     });
-    setScore(calculatedScore);
-    localStorage.setItem(`quiz_score_${JobId}`, calculatedScore);
-  }, [answers, data.questions]);
-
-  // ---------- FORMAT TIME ----------
-  const formatTime = (time) => {
-    const h = Math.floor(time / 3600);
-    const m = Math.floor((time % 3600) / 60);
-    const s = time % 60;
-    return `${h.toString().padStart(2, "0")}:${m
-      .toString()
-      .padStart(2, "0")}:${s.toString().padStart(2, "0")}`;
+    return score;
   };
 
-  // ---------- ANSWER HANDLER ----------
-  const handleOptionChange = (questionId, optionId) => {
-    const updated = { ...answers, [questionId]: optionId };
-    setAnswers(updated);
-    localStorage.setItem(`quiz_answers_${JobId}`, JSON.stringify(updated));
+  // Reset Quiz State
+  const handleRestart = () => {
+    setSelectedAnswers({});
+    setCurrentIndex(0);
+    setTimeLeft(TOTAL_QUIZ_TIME);
+    setIsSubmitted(false);
   };
 
-  // ---------- SUBMIT ----------
-  const SubmitTest = () => {
-    if (confirm("Are you sure you want to submit the test?")) {
-      setSeconds(0);
-      setShow(true);
-      setshows(false);
-      localStorage.setItem(`quiz_submitted_${JobId}`, "true");
-      localStorage.removeItem(`quiz_seconds_${JobId}`);
-    }
-  };
+  // Loading State
+  if (loading) {
+    return (
+      <div className="quiz-container center-text">
+        <p>Loading assessment questions...</p>
+      </div>
+    );
+  }
+
+  // Error State
+  if (error) {
+    return (
+      <div className="quiz-container center-text error-box">
+        <p>{error}</p>
+        <button className="btn btn-primary" onClick={fetchQuiz}>
+          Retry
+        </button>
+      </div>
+    );
+  }
+
+  // No Questions Found
+  if (questions.length === 0) {
+    return (
+      <div className="quiz-container center-text">
+        <p>No questions available for this Job ID.</p>
+      </div>
+    );
+  }
+
+  // Results View
+  if (isSubmitted) {
+    const score = calculateScore();
+    const percentage = Math.round((score / questions.length) * 100);
+
+    return (
+      <div className="quiz-container">
+        <div className="quiz-card results-card">
+          <h2>Assessment Completed! 🎉</h2>
+          <div className="score-badge">
+            <span className="score-number">{score}</span> / {questions.length}
+          </div>
+          <p className="score-percentage">Your Score: {percentage}%</p>
+
+          <hr className="divider" />
+
+          <h3>Review Answers</h3>
+          <div className="review-list">
+            {questions.map((q, idx) => {
+              const userAns = selectedAnswers[idx];
+              const isCorrect = userAns === q.correctAnswer;
+
+              return (
+                <div
+                  key={idx}
+                  className={`review-item ${isCorrect ? "correct" : "incorrect"}`}
+                >
+                  <p className="review-question">
+                    <strong>Q{idx + 1}:</strong> {q.question}
+                  </p>
+                  <p className="review-ans">
+                    <strong>Your Answer:</strong>{" "}
+                    {userAns ? userAns : "Not Answered"}
+                  </p>
+                  {!isCorrect && (
+                    <p className="review-correct">
+                      <strong>Correct Answer:</strong> {q.correctAnswer}
+                    </p>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+
+          <button className="btn btn-primary mt-20" onClick={handleRestart}>
+            Retake Quiz
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // Active Question View
+  const currentQ = questions[currentIndex];
+  const options = [
+    { key: "A", val: currentQ.optionA },
+    { key: "B", val: currentQ.optionB },
+    { key: "C", val: currentQ.optionC },
+    { key: "D", val: currentQ.optionD },
+  ].filter((opt) => opt.val);
 
   return (
     <div className="quiz-container">
-      <h2>Timer: {formatTime(seconds)}</h2>
+      <div className="quiz-card">
+        {/* Header: Progress & Overall Timer */}
+        <div className="quiz-header">
+          <div className="question-progress">
+            Question <span>{currentIndex + 1}</span> of {questions.length}
+          </div>
+          <div
+            className={`timer-badge ${timeLeft <= 60 ? "timer-warning" : ""}`}
+          >
+            ⏱️ Time Left: {formatTime(timeLeft)}
+          </div>
+        </div>
 
-      <div className="quiz-header">
-        <p>Duration: {data.durationMinutes} minutes</p>
-        <div className="score-box">Score: {score}</div>
-      </div>
+        {/* Progress Bar */}
+        <div className="progress-bar-bg">
+          <div
+            className="progress-bar-fill"
+            style={{
+              width: `${((currentIndex + 1) / questions.length) * 100}%`,
+            }}
+          ></div>
+        </div>
 
-      {seconds > 0 &&
-        data.questions?.map((q, index) => (
-          <div key={q.id} className="question-card">
-            <p className="question-text">
-              Q{index + 1}. {q.questionText}
-            </p>
+        {/* Question Text */}
+        <h3 className="question-text">{currentQ.question}</h3>
 
-            {q.options?.map((o) => (
-              <label key={o.id} className="option">
+        {/* Options Grid */}
+        <div className="options-container">
+          {options.map((opt) => {
+            const isSelected = selectedAnswers[currentIndex] === opt.val;
+            return (
+              <label
+                key={opt.key}
+                className={`option-card ${isSelected ? "selected" : ""}`}
+                onClick={() => handleOptionSelect(opt.val)}
+              >
                 <input
                   type="radio"
-                  name={`question-${q.id}`}
-                  disabled={seconds === 0}
-                  checked={answers[q.id] === o.id.toString()}
-                  onChange={() =>
-                    handleOptionChange(q.id.toString(), o.id.toString())
-                  }
+                  name={`question-${currentIndex}`}
+                  value={opt.val}
+                  checked={isSelected}
+                  onChange={() => {}}
                 />
-                <span>{o.optionText}</span>
+                <span className="option-prefix">{opt.key}</span>
+                <span className="option-text">{opt.val}</span>
               </label>
-            ))}
-          </div>
-        ))}
+            );
+          })}
+        </div>
 
-      <div className="submit-section">
-        {shows&&<button onClick={SubmitTest}>Submit Test</button>}
-
-        {seconds === 0 && show && (
-          <div
-            className={`result ${
-              score >= 2 ? "pass" : "fail"
-            }`}
+        {/* Footer Navigation */}
+        <div className="quiz-footer">
+          <button
+            className="btn btn-secondary"
+            disabled={currentIndex === 0}
+            onClick={() => setCurrentIndex((prev) => prev - 1)}
           >
-            {score >= 2
-              ? "🎉 Passed! You will shortly receive an interview call"
-              : "❌ Not shortlisted. Better luck next time"}
-          </div>
-        )}
+            Previous
+          </button>
+
+          {currentIndex === questions.length - 1 ? (
+            <button className="btn btn-success" onClick={handleSubmit}>
+              Submit Quiz
+            </button>
+          ) : (
+            <button
+              className="btn btn-primary"
+              onClick={() => setCurrentIndex((prev) => prev + 1)}
+            >
+              Next Question
+            </button>
+          )}
+        </div>
       </div>
     </div>
   );
